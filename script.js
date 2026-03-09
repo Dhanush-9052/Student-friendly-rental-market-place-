@@ -863,7 +863,7 @@ window.openOwnerNotifications = async function () {
     return;
   }
 
-  // GET ALL USERS (ONCE)
+  // GET ALL USERS
   const usersSnapshot = await getDocs(collection(db, "users"));
 
   const usersMap = {};
@@ -873,12 +873,39 @@ window.openOwnerNotifications = async function () {
 
   container.innerHTML = "<h2>Notifications</h2>";
 
+  // ARRAYS FOR SORTING
+  const returnRequests = [];
+  const rentRequests = [];
+  const otherRequests = [];
+
   reqSnapshot.forEach(docSnap => {
 
     const req = docSnap.data();
-
     const customer = usersMap[req.customerId];
     const customerName = customer ? (customer.name || customer.email) : "Customer";
+
+    const requestData = {
+      id: docSnap.id,
+      req,
+      customerName
+    };
+
+    if (req.status === "return_requested") {
+      returnRequests.push(requestData);
+    }
+    else if (req.status === "pending") {
+      rentRequests.push(requestData);
+    }
+    else {
+      otherRequests.push(requestData);
+    }
+
+  });
+
+  // FUNCTION TO RENDER REQUEST
+  const renderRequest = (item) => {
+
+    const req = item.req;
 
     let statusText = "";
     let statusColor = "black";
@@ -886,6 +913,11 @@ window.openOwnerNotifications = async function () {
     if (req.status === "pending") {
       statusText = "Pending";
       statusColor = "orange";
+    }
+
+    if (req.status === "return_requested") {
+      statusText = "Return Requested";
+      statusColor = "purple";
     }
 
     if (req.status === "approved") {
@@ -906,7 +938,7 @@ window.openOwnerNotifications = async function () {
     container.innerHTML += `
       <div class="request-card">
 
-        <p><strong>${customerName}</strong> wants to rent <strong>${req.itemName}</strong></p>
+        <p><strong>${item.customerName}</strong> wants to rent <strong>${req.itemName}</strong></p>
 
         <p><strong>From:</strong> ${req.fromDate}</p>
         <p><strong>To:</strong> ${req.toDate}</p>
@@ -923,16 +955,34 @@ window.openOwnerNotifications = async function () {
         ${
           req.status === "pending"
           ? `
-            <button onclick="approveRequest('${docSnap.id}')">Approve</button>
-            <button onclick="rejectRequest('${docSnap.id}')">Reject</button>
-          `
+            <button onclick="approveRequest('${item.id}')">Approve</button>
+            <button onclick="rejectRequest('${item.id}')">Reject</button>
+            `
+          : req.status === "return_requested"
+          ? `
+            <button onclick="acceptReturn('${item.id}', '${req.itemId}')">
+              Accept Return
+            </button>
+
+            <button onclick="rejectReturn('${item.id}')">
+              Reject
+            </button>
+            `
           : ""
         }
 
       </div>
     `;
+  };
 
-  });
+  // 1️⃣ RETURN REQUESTS FIRST
+  returnRequests.forEach(renderRequest);
+
+  // 2️⃣ RENT REQUESTS
+  rentRequests.forEach(renderRequest);
+
+  // 3️⃣ OTHER STATUSES
+  otherRequests.forEach(renderRequest);
 
 };
 
@@ -1047,23 +1097,29 @@ function listenOwnerNotifications() {
 
   const q = query(
     collection(db, "requests"),
-    where("ownerId", "==", user.uid),
-    where("status", "==", "pending")
+    where("ownerId", "==", user.uid)
   );
 
   onSnapshot(q, (snapshot) => {
 
-    const count = snapshot.size;
+    let count = 0;
+
+    snapshot.forEach((docSnap) => {
+
+      const data = docSnap.data();
+
+      if (data.status === "pending" || data.status === "return_requested") {
+        count++;
+      }
+
+    });
 
     if (count > 0) {
-
       badge.innerText = count;
       badge.style.display = "inline-block";
-
-    } else {
-
+    } 
+    else {
       badge.style.display = "none";
-
     }
 
   });
@@ -1685,9 +1741,13 @@ window.showCustomerHistory = async function () {
 
           ${
             req.status === "approved"
-            ? `<button onclick="returnItem('${docSnap.id}', '${req.itemId}')">
-                 Return Item
-               </button>`
+            ? `<button onclick="requestReturn('${docSnap.id}')">
+                  Return Request
+              </button>`
+            : req.status === "return_requested"
+            ? `<p style="color:orange;font-weight:bold;">
+                  Return request sent. Waiting for owner approval
+              </p>`
             : ""
           }
 
@@ -1714,20 +1774,15 @@ function hideCustomerSections() {
   if (profileDiv) profileDiv.style.display = "none";
 }
 
-window.returnItem = async function (requestId, itemId) {
+window.requestReturn = async function (requestId) {
 
-  // Update status
-  await updateDoc(doc(db, "requests", requestId), {
-    status: "returned",
-    returnedAt: new Date()
+  const requestRef = doc(db, "requests", requestId);
+
+  await updateDoc(requestRef, {
+    status: "return_requested"
   });
 
-  // Increase item quantity
-  await updateDoc(doc(db, "items", itemId), {
-    quantity: increment(1)
-  });
-
-  alert("Item returned successfully");
+  alert("Return request sent to owner");
 
   showCustomerHistory();
 };
@@ -2209,4 +2264,31 @@ window.filterItems = function () {
 
   cards.forEach(card => container.appendChild(card));
 
+};
+
+window.acceptReturn = async function (requestId, itemId) {
+
+  await updateDoc(doc(db, "requests", requestId), {
+    status: "returned",
+    returnedAt: new Date()
+  });
+
+  await updateDoc(doc(db, "items", itemId), {
+    quantity: increment(1)
+  });
+
+  alert("Item marked as returned");
+
+  openOwnerNotifications();
+};
+
+window.rejectReturn = async function (requestId) {
+
+  await updateDoc(doc(db, "requests", requestId), {
+    status: "approved"
+  });
+
+  alert("Return request rejected");
+
+  openOwnerNotifications();
 };
