@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Owner Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div class="dashboard-header">
+    <div class="dashboard-title">
+      Student Rental Hub
+    </div>
+
+    <div class="dashboard-user">
+      Welcome, <span id="currentUser"></span>
+    </div>
+  </div>
+
+  <!-- NAV BAR -->
+  <div class="dashboard-nav">
+    <button onclick="showAddItem()">Add Item</button>
+    <button onclick="showMyItems()">My Items</button>
+    <!-- <button onclick="showOwnerRequests()">Rental Requests</button> -->
+
+    <button onclick="openOwnerNotifications()" class="notif-btn">
+      Notifications
+      <span id="ownerNotifBadge" class="notif-badge"></span>
+    </button>
+
+    <button onclick="showOwnerHistory()">Rental History</button>
+    <button onclick="showProfile()">Profile</button>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="dashboard-content">
+
+    <!-- 🔵 ADD ITEM FORM -->
+    <div id="addForm" style="display:none; margin-bottom:20px;">
+
+      <h3>Add New Item</h3>
+
+      <input type="text" id="name" placeholder="Item Name">
+      <input type="number" id="price" placeholder="Rent per day">
+      <input type="text" id="deposit" placeholder="Security Deposit">
+      <input type="text" id="brand" placeholder="Brand">
+      <input type="text" id="features" placeholder="Features">
+      <input type="number" id="quantity" placeholder="Quantity" value="1">
+      <input type="file" id="image" accept="image/*">
+
+      <button onclick="addItem()">Add Item</button>
+
+    </div>
+
+    <!-- 🔵 EDIT ITEM FORM -->
+    <div id="editForm" style="display:none; margin-bottom:20px;">
+
+      <h3>Edit Item</h3>
+
+      <input type="hidden" id="editItemId">
+
+      <input type="text" id="edit_name" placeholder="Item Name">
+      <input type="number" id="edit_price" placeholder="Rent per day">
+      <input type="text" id="edit_deposit" placeholder="Security Deposit">
+      <input type="text" id="edit_brand" placeholder="Brand">
+      <input type="text" id="edit_features" placeholder="Features">
+      <input type="number" id="edit_quantity" placeholder="Quantity">
+      <input type="file" id="edit_image" accept="image/*">
+
+      <button onclick="saveItemChanges()">Save Changes</button>
+      <button onclick="cancelEdit()">Cancel</button>
+
+    </div>
+
+    <!-- 🔵 PROFILE SECTION -->
+<div id="profileSection" style="display:none; margin-top:20px;">
+
+  <h2>My Profile</h2>
+
+  <div id="profileView">
+
+    <p><strong>Name:</strong> <span id="profileName"></span></p>
+    <p><strong>Phone:</strong> <span id="profilePhone"></span></p>
+    <p><strong>Address:</strong> <span id="profileAddress"></span></p>
+    <br>
+    <button onclick="enableEditProfile()">Edit Profile</button>
+
+  </div>
+
+  <div id="profileEdit" style="display:none;">
+
+    <input type="text" id="editName" placeholder="Name"><br>
+    <input type="text" id="editPhone" placeholder="Phone"><br>
+    <input type="text" id="editAddress" placeholder="Address"><br><br>
+
+    <button onclick="saveProfile()">Save</button>
+    <button onclick="cancelEditProfile()">Cancel</button>
+
+  </div>
+
+</div>
+
+    <!-- 🔵 ITEMS LIST -->
+    <div id="myItems"></div>
+
+  </div>
+
+  <!-- FIREBASE SCRIPT -->
+  <script type="module" src="script.js"></script>
+
+</body>
+</html>

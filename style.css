@@ -1,0 +1,410 @@
+/* =========================
+   RESET
+========================= */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f1f3f6;
+  color: #212121;
+}
+
+/* =========================
+   TOP BAR (Amazon style)
+========================= */
+
+.dashboard-header {
+  background: #131921;
+  color: #ffffff;
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dashboard-title {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.dashboard-user {
+  font-size: 14px;
+}
+
+/* =========================
+   NAV BAR
+========================= */
+
+.dashboard-nav {
+  background: #232f3e;
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.dashboard-nav button {
+  background: #37475a;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.dashboard-nav button:hover {
+  background: #485769;
+}
+
+/* =========================
+   PAGE CONTENT
+========================= */
+
+.dashboard-content {
+  max-width: 1100px;
+  margin: 20px auto;
+  background: #ffffff;
+  padding: 20px;
+  border: 1px solid #ddd;
+}
+
+/* =========================
+   CARDS (Items, History, Notifications)
+========================= */
+#customerNotifications div {
+  border: 1px solid #e0e0e0;
+  padding: 15px;
+  margin-bottom: 15px;
+  background: #ffffff;
+}
+
+/* =========================
+   BUTTONS (GLOBAL)
+========================= */
+
+button {
+  background: #ffd814;
+  color: #111;
+  border: 1px solid #fcd200;
+  border-radius: 3px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #f7ca00;
+}
+
+/* =========================
+   INPUTS
+========================= */
+
+input {
+  width: 100%;
+  max-width: 260px;
+  padding: 8px;
+  margin: 6px 0;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+}
+
+/* =========================
+   RENT MODAL
+========================= */
+
+/* =========================
+   PROFILE PAGE
+========================= */
+
+.profile-body {
+  background: #f1f3f6;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.profile-card {
+  background: #ffffff;
+  padding: 25px;
+  width: 320px;
+  border: 1px solid #ddd;
+}
+
+.profile-card input {
+  width: 100%;
+}
+
+.profile-card button {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.msg {
+  font-size: 13px;
+  color: green;
+  margin-top: 8px;
+}
+
+/* =========================
+   AUTH PAGES (ROLE / LOGIN / REGISTER)
+========================= */
+
+/* Center everything vertically & horizontally */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Card container */
+.auth-card {
+  background: #ffffff;
+  padding: 30px;
+  width: 320px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  text-align: center;
+}
+
+/* Title */
+.auth-card h1,
+.auth-card h2 {
+  margin-bottom: 20px;
+  color: #111;
+}
+
+/* Inputs inside auth */
+.auth-card input {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+/* Buttons inside auth */
+.auth-card button {
+  width: 100%;
+  margin: 8px 0;
+}
+
+.role-box button {
+  width: 100%;
+  margin: 8px 0;
+}
+
+#addForm input {
+  width: 100%;
+  max-width: 300px;
+  margin: 6px 0;
+}
+
+#addForm button {
+  margin-top: 10px;
+}
+
+/* 🔴 Notification Button Wrapper */
+.notif-btn {
+  position: relative;
+}
+
+/* 🔴 Bubble Badge */
+.notif-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: red;
+  color: white;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 50%;
+  display: none;
+  font-weight: bold;
+}
+
+#editForm {
+  background: #fff;
+  padding: 15px;
+  border: 1px solid #ddd;
+  max-width: 400px;
+}
+
+.item-card {
+  display: flex;
+  gap: 15px;
+  align-items: flex-start;
+}
+
+.item-card img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border: 1px solid #ddd;
+}
+
+.item-details {
+  flex: 1;
+}
+
+
+.hidden {
+  display: none;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-box {
+  background: white;
+  padding: 20px;
+  width: 350px;
+  border-radius: 8px;
+}
+
+.profile-label {
+  width: 120px;
+  text-align: right;
+  margin-right: 15px;
+  font-weight: bold;
+}
+
+.profile-card input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.profile-card input:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+.profile-card textarea {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.item-card {
+  display: flex;
+  gap: 25px;
+  background: #f5f5f5;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  align-items: center;
+}
+
+.item-left img {
+  width: 140px;
+  height: 160px;
+  object-fit: contain;
+  background: white;
+  padding: 10px;
+  border: 1px solid #ddd;
+}
+
+.item-right {
+  flex: 1;
+}
+
+.item-right h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.item-right p {
+  margin: 4px 0;
+  font-size: 16px;
+}
+
+.rent-btn {
+  background-color: #f0c14b;
+  border: 1px solid #a88734;
+  padding: 8px 16px;
+  margin-top: 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.rent-btn:hover {
+  background-color: #ddb347;
+}
+
+.request-card {
+  background: #f5f5f5;
+  padding: 15px;
+  margin-bottom: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.request-card h3 {
+  margin-top: 0;
+}
+
+.item-card p {
+  margin: 5px 0;
+}
+
+.request-card p {
+  margin: 6px 0;
+  display: block;
+}
+
+/* Search Bar Style */
+.search-bar{
+  width: 75%;
+  padding: 12px;
+  margin: 20px 10px 20px 0;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+}
+
+#itemFilter{
+  width: 200px;
+  height: 45px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.search-bar:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 5px rgba(0,123,255,0.3);
+}
+
+/* Search bars (owner + customer) */
+
+.search-bar,
+#customerSearch,
+#ownerSearch {
+  width: 70%;
+  max-width: 600px;
+  padding: 12px 16px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+}
+

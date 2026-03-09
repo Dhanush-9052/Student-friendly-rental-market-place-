@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Student Rental Hub</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+
+  <div class="auth-card">
+    <h1>Student Rental Hub</h1>
+
+    <div class="role-box">
+      <button onclick="selectRole('customer')">I am a Customer</button>
+      <button onclick="selectRole('owner')">I am an Owner</button>
+    </div>
+  </div>
+
+<script>
+function selectRole(role) {
+  localStorage.setItem("role", role);
+  window.location.href = "login.html";
+}
+</script>
+
+</body>
+</html>
