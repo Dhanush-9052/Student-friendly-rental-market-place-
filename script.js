@@ -188,6 +188,9 @@ onAuthStateChanged(auth, async (user) => {
 
       listenCustomerNotifications();
 
+      // ⭐ CHECK LATE RETURNS
+      checkLateReturns(user.uid);
+
       // Automatically show items
       showItemsForRent();
     }
@@ -863,7 +866,6 @@ window.openOwnerNotifications = async function () {
     return;
   }
 
-  // GET ALL USERS
   const usersSnapshot = await getDocs(collection(db, "users"));
 
   const usersMap = {};
@@ -873,14 +875,30 @@ window.openOwnerNotifications = async function () {
 
   container.innerHTML = "<h2>Notifications</h2>";
 
-  // ARRAYS FOR SORTING
   const returnRequests = [];
   const rentRequests = [];
   const otherRequests = [];
 
-  reqSnapshot.forEach(docSnap => {
+  for (const docSnap of reqSnapshot.docs) {
 
     const req = docSnap.data();
+
+    // 🔴 AUTO EXPIRE AFTER 2 HOURS
+    if (req.status === "pending" && req.createdAt) {
+
+      const createdTime = req.createdAt.toMillis();
+      const currentTime = Date.now();
+
+      if (currentTime - createdTime > 7200000) {
+
+        await updateDoc(doc(db, "requests", docSnap.id), {
+          status: "expired"
+        });
+
+        req.status = "expired";
+      }
+    }
+
     const customer = usersMap[req.customerId];
     const customerName = customer ? (customer.name || customer.email) : "Customer";
 
@@ -900,9 +918,8 @@ window.openOwnerNotifications = async function () {
       otherRequests.push(requestData);
     }
 
-  });
+  }
 
-  // FUNCTION TO RENDER REQUEST
   const renderRequest = (item) => {
 
     const req = item.req;
@@ -935,10 +952,26 @@ window.openOwnerNotifications = async function () {
       statusColor = "blue";
     }
 
+    if (req.status === "expired") {
+      statusText = "Request Timed Out – No response from owner";
+      statusColor = "gray";
+    }
+
+    if (req.status === "cancelled") {
+      statusText = "Request Cancelled by " + item.customerName;
+      statusColor = "darkred";
+    }
+
     container.innerHTML += `
       <div class="request-card">
 
-        <p><strong>${item.customerName}</strong> wants to rent <strong>${req.itemName}</strong></p>
+        <p>
+          ${
+            req.status === "cancelled"
+              ? `<strong>${item.customerName}</strong> cancelled the request for <strong>${req.itemName}</strong>`
+              : `<strong>${item.customerName}</strong> wants to rent <strong>${req.itemName}</strong>`
+          }
+        </p>
 
         <p><strong>From:</strong> ${req.fromDate}</p>
         <p><strong>To:</strong> ${req.toDate}</p>
@@ -975,13 +1008,8 @@ window.openOwnerNotifications = async function () {
     `;
   };
 
-  // 1️⃣ RETURN REQUESTS FIRST
   returnRequests.forEach(renderRequest);
-
-  // 2️⃣ RENT REQUESTS
   rentRequests.forEach(renderRequest);
-
-  // 3️⃣ OTHER STATUSES
   otherRequests.forEach(renderRequest);
 
 };
@@ -1063,13 +1091,43 @@ window.showMyRequests = async function () {
 
     const req = docSnap.data();
 
-    let statusText = req.status;
-
+    let statusText = "";
     let statusColor = "black";
 
-if (req.status === "approved") statusColor = "green";
-if (req.status === "rejected") statusColor = "red";
-if (req.status === "pending") statusColor = "orange";
+    if (req.status === "approved") {
+      statusText = "Accepted";
+      statusColor = "green";
+    }
+
+    if (req.status === "rejected") {
+      statusText = "Rejected";
+      statusColor = "red";
+    }
+
+    if (req.status === "pending") {
+      statusText = "Pending";
+      statusColor = "orange";
+    }
+
+    if (req.status === "returned") {
+      statusText = "Returned";
+      statusColor = "blue";
+    }
+
+    if (req.status === "return_requested") {
+      statusText = "Return Requested";
+      statusColor = "purple";
+    }
+
+    if (req.status === "cancelled") {
+      statusText = "Request Cancelled";
+      statusColor = "darkred";
+    }
+
+    if (req.status === "expired") {
+      statusText = "Request Timed Out – No response from owner";
+      statusColor = "gray";
+    }
 
 container.innerHTML += `
   <div class="request-card">
@@ -1454,7 +1512,45 @@ window.showOwnerHistory = async function () {
 
     const image = item ? item.imageBase64 : "";
     const customerName = userData ? (userData.name || userData.email) : "Customer";
+    
 
+    let statusText = "";
+    let statusColor = "black";
+
+    if (req.status === "approved") {
+      statusText = "Accepted";
+      statusColor = "green";
+    }
+
+    if (req.status === "rejected") {
+      statusText = "Rejected";
+      statusColor = "red";
+    }
+
+    if (req.status === "pending") {
+      statusText = "Pending";
+      statusColor = "orange";
+    }
+
+    if (req.status === "returned") {
+      statusText = "Returned";
+      statusColor = "blue";
+    }
+
+    if (req.status === "return_requested") {
+      statusText = "Return Requested";
+      statusColor = "purple";
+    }
+
+    if (req.status === "cancelled") {
+      statusText = "Request Cancelled by Customer";
+      statusColor = "darkred";
+    }
+
+    if (req.status === "expired") {
+      statusText = "Request Timed Out – No response from owner";
+      statusColor = "gray";
+    }
     container.innerHTML += `
       <div class="item-card">
 
@@ -1466,7 +1562,12 @@ window.showOwnerHistory = async function () {
 
           <p><strong>Item:</strong> ${req.itemName}</p>
           <p><strong>Customer:</strong> ${customerName}</p>
-          <p><strong>Status:</strong> ${req.status}</p>
+          <p>
+            <strong>Status:</strong>
+            <span style="color:${statusColor}; font-weight:bold;">
+              ${statusText}
+            </span>
+          </p>
 
         </div>
 
@@ -1517,7 +1618,7 @@ window.openCustomerNotifications = async function () {
     if (req.penaltyAmount > 0 && req.status === "approved") {
 
       message = `
-        Late return penalty applied for 
+        Late return penalty has been applied for 
         "<strong>${req.itemName}</strong>"<br>
         <span style="color:red;font-weight:bold;">
           Penalty: ₹${req.penaltyAmount}
@@ -1597,8 +1698,6 @@ window.showCustomerHistory = async function () {
   const user = auth.currentUser;
   if (!user) return;
 
-  await checkLateReturns(user.uid);
-
   const reqQuery = query(
     collection(db, "requests"),
     where("customerId", "==", user.uid),
@@ -1614,41 +1713,36 @@ window.showCustomerHistory = async function () {
     return;
   }
 
-  // 🔹 Load items once
   const itemsSnapshot = await getDocs(collection(db, "items"));
-
-  if (token !== customerRenderToken) return;
 
   const itemsMap = {};
   itemsSnapshot.forEach(doc => {
     itemsMap[doc.id] = doc.data();
   });
 
-  // 🔹 Load reviews once
-  const reviewQuery = query(
-    collection(db, "reviews"),
-    where("customerId", "==", user.uid)
-  );
-
-  const reviewSnapshot = await getDocs(reviewQuery);
-
-  const reviewMap = {};
-
-  reviewSnapshot.forEach(doc => {
-    const data = doc.data();
-    reviewMap[data.itemId] = {
-      reviewId: doc.id,
-      rating: data.rating
-    };
-  });
-
   container.innerHTML = "<h2>Rental History</h2>";
 
-  reqSnapshot.forEach(docSnap => {
+  for (const docSnap of reqSnapshot.docs) {
 
     const req = docSnap.data();
-    const item = itemsMap[req.itemId];
 
+    // 🔴 AUTO EXPIRE AFTER 2 HOURS
+    if (req.status === "pending" && req.createdAt) {
+
+      const createdTime = req.createdAt.toMillis();
+      const currentTime = Date.now();
+
+      if (currentTime - createdTime > 3600000) {
+
+        await updateDoc(doc(db, "requests", docSnap.id), {
+          status: "expired"
+        });
+
+        req.status = "expired";
+      }
+    }
+
+    const item = itemsMap[req.itemId];
     let image = item ? item.imageBase64 : "";
 
     let statusText = "";
@@ -1674,38 +1768,19 @@ window.showCustomerHistory = async function () {
       statusColor = "blue";
     }
 
-    let reviewButtons = "";
+    if (req.status === "return_requested") {
+      statusText = "Return Requested";
+      statusColor = "purple";
+    }
 
-    if (req.status === "returned") {
+    if (req.status === "cancelled") {
+      statusText = "Request Cancelled";
+      statusColor = "darkred";
+    }
 
-      if (!reviewMap[req.itemId]) {
-
-        reviewButtons = `
-          <button onclick="addReview('${req.itemId}')">
-            Give Review
-          </button>
-        `;
-
-      } else {
-
-        const reviewId = reviewMap[req.itemId].reviewId;
-
-        reviewButtons = `
-          <button 
-            style="background:gold; border:none; padding:6px 10px; border-radius:6px; cursor:pointer;"
-            onclick="editReview('${reviewId}')">
-            Edit Review
-          </button>
-
-          <button 
-            style="background:red; color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer;"
-            onclick="deleteReview('${reviewId}')">
-            Delete Review
-          </button>
-        `;
-
-      }
-
+    if (req.status === "expired") {
+      statusText = "Request Timed Out – No response from owner";
+      statusColor = "gray";
     }
 
     container.innerHTML += `
@@ -1724,14 +1799,6 @@ window.showCustomerHistory = async function () {
           <p><strong>Days:</strong> ${req.days}</p>
           <p><strong>Total Rent:</strong> ₹${req.totalRent || 0}</p>
 
-          ${
-            req.penaltyAmount > 0
-            ? `<p style="color:red;font-weight:bold;">
-                 Late return penalty: ₹${req.penaltyAmount}
-               </p>`
-            : ""
-          }
-
           <p>
             <strong>Status:</strong>
             <span style="color:${statusColor}">
@@ -1740,7 +1807,20 @@ window.showCustomerHistory = async function () {
           </p>
 
           ${
-            req.status === "approved"
+            req.penaltyAmount > 0 && req.status === "approved"
+            ? `<p style="color:red;font-weight:bold;">
+                  Late Return Penalty: ₹${req.penaltyAmount}
+              </p>`
+            : ""
+          }
+
+          ${
+            req.status === "pending"
+            ? `<button onclick="cancelRequest('${docSnap.id}')"
+                  style="background:#ff4d4d;color:white;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;">
+                  Cancel Request
+              </button>`
+            : req.status === "approved"
             ? `<button onclick="requestReturn('${docSnap.id}')">
                   Return Request
               </button>`
@@ -1751,14 +1831,11 @@ window.showCustomerHistory = async function () {
             : ""
           }
 
-          ${reviewButtons}
-
         </div>
 
       </div>
     `;
-
-  });
+  }
 
 };
 
@@ -2291,4 +2368,18 @@ window.rejectReturn = async function (requestId) {
   alert("Return request rejected");
 
   openOwnerNotifications();
+};
+
+window.cancelRequest = async function (requestId) {
+
+  const confirmCancel = confirm("Are you sure you want to cancel this request?");
+  if (!confirmCancel) return;
+
+  await updateDoc(doc(db, "requests", requestId), {
+    status: "cancelled"
+  });
+
+  alert("Request cancelled successfully");
+
+  showCustomerHistory();
 };
