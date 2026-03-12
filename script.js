@@ -407,7 +407,8 @@ window.addItem = async function () {
     });
 
     alert("Item added successfully!");
-    loadOwnerItems();
+    hideOwnerSections();
+    showMyItems();
   }
 };
 
@@ -605,8 +606,12 @@ window.viewOwnerItemReviews = async function (itemId, itemName) {
   // 🔥 USE YOUR EXISTING "date" FIELD
   let formattedDate = "";
 
-  if (review.date) {
-    formattedDate = review.date.toDate().toLocaleDateString();
+  if (review.createdAt) {
+    formattedDate = review.createdAt.toDate().toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
   }
 
   container.innerHTML += `
@@ -1216,10 +1221,26 @@ function listenCustomerNotifications() {
     });
 
     if (unreadCount > 0) {
+
       badge.innerText = unreadCount;
       badge.style.display = "inline-block";
-    } else {
+
+      const menuBadge = document.getElementById("menuNotifBadge");
+      if(menuBadge){
+        menuBadge.innerText = unreadCount;
+        menuBadge.style.display = "inline-block";
+      }
+
+    } 
+    else {
+
       badge.style.display = "none";
+
+      const menuBadge = document.getElementById("menuNotifBadge");
+      if(menuBadge){
+        menuBadge.style.display = "none";
+      }
+
     }
 
   });
@@ -1357,19 +1378,52 @@ window.saveItemChanges = async function () {
 
   const itemId = document.getElementById("editItemId").value;
 
-  await updateDoc(doc(db, "items", itemId), {
-    name: document.getElementById("edit_name").value,
-    price: Number(document.getElementById("edit_price").value),
-    deposit: Number(document.getElementById("edit_deposit").value),
-    brand: document.getElementById("edit_brand").value,
-    features: document.getElementById("edit_features").value,
-    quantity: Number(document.getElementById("edit_quantity").value)
-  });
+  const name = document.getElementById("edit_name").value;
+  const price = document.getElementById("edit_price").value;
+  const deposit = document.getElementById("edit_deposit").value;
+  const brand = document.getElementById("edit_brand").value;
+  const features = document.getElementById("edit_features").value;
+  const quantity = document.getElementById("edit_quantity").value;
 
-  alert("Item updated successfully");
+  const imageFile = document.getElementById("edit_image").files[0];
 
-  hideOwnerSections();
-  showMyItems();
+  let updateData = {
+    name: name,
+    price: Number(price),
+    deposit: Number(deposit),
+    brand: brand,
+    features: features,
+    quantity: Number(quantity)
+  };
+
+  if (imageFile) {
+
+    const reader = new FileReader();
+
+    reader.onload = async function () {
+
+      updateData.imageBase64 = reader.result;
+
+      await updateDoc(doc(db, "items", itemId), updateData);
+
+      alert("Item updated successfully");
+
+      hideOwnerSections();
+      showMyItems();
+    };
+
+    reader.readAsDataURL(imageFile);
+
+  } else {
+
+    await updateDoc(doc(db, "items", itemId), updateData);
+
+    alert("Item updated successfully");
+
+    hideOwnerSections();
+    showMyItems();
+  }
+
 };
 
 window.cancelEdit = function () {
@@ -1395,11 +1449,17 @@ async function loadHeaderName(user) {
 
   const data = userDoc.data();
 
-  const nameSpan = document.getElementById("currentUser");
+  const headerName = document.getElementById("currentUser");
+  const sidebarName = document.getElementById("sidebarName");
+  const sidebarEmail = document.getElementById("sidebarEmail");
 
-  if (nameSpan) {
-    nameSpan.innerText = data.name || user.email;
-  }
+  const name = data.name || user.email.split("@")[0];
+
+  if (headerName) headerName.innerText = name;
+
+  if (sidebarName) sidebarName.innerText = name;
+
+  if (sidebarEmail) sidebarEmail.innerText = user.email;
 }
 
 function setupDateLimits() {
@@ -1678,6 +1738,8 @@ unreadSnap.forEach((docSnap) => {
 });
 
 await Promise.all(updates);
+const menuBadge = document.getElementById("menuNotifBadge");
+if(menuBadge) menuBadge.style.display = "none";
 
 };
 

@@ -1,113 +1,171 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Owner Dashboard</title>
-  <link rel="stylesheet" href="style.css">
+<title>Owner Dashboard</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
+
 <body>
 
-  <!-- TOP BAR -->
-  <div class="dashboard-header">
-    <div class="dashboard-title">
-      Student Rental Hub
-    </div>
+<!-- HEADER -->
+<div class="top-header">
 
-    <div class="dashboard-user">
-      Welcome, <span id="currentUser"></span>
-    </div>
-  </div>
+<div class="header-left">
+<div class="menu-icon" onclick="toggleSidebar()">
+  ☰
+  <span id="menuNotifBadge" class="menu-badge"></span>
+</div>
+<div class="header-title">Student Rental Hub</div>
+</div>
 
-  <!-- NAV BAR -->
-  <div class="dashboard-nav">
-    <button onclick="showAddItem()">Add Item</button>
-    <button onclick="showMyItems()">My Items</button>
-    <!-- <button onclick="showOwnerRequests()">Rental Requests</button> -->
-
-    <button onclick="openOwnerNotifications()" class="notif-btn">
-      Notifications
-      <span id="ownerNotifBadge" class="notif-badge"></span>
-    </button>
-
-    <button onclick="showOwnerHistory()">Rental History</button>
-    <button onclick="showProfile()">Profile</button>
-    <button onclick="logout()">Logout</button>
-  </div>
-
-  <!-- CONTENT -->
-  <div class="dashboard-content">
-
-    <!-- 🔵 ADD ITEM FORM -->
-    <div id="addForm" style="display:none; margin-bottom:20px;">
-
-      <h3>Add New Item</h3>
-
-      <input type="text" id="name" placeholder="Item Name">
-      <input type="number" id="price" placeholder="Rent per day">
-      <input type="text" id="deposit" placeholder="Security Deposit">
-      <input type="text" id="brand" placeholder="Brand">
-      <input type="text" id="features" placeholder="Features">
-      <input type="number" id="quantity" placeholder="Quantity" value="1">
-      <input type="file" id="image" accept="image/*">
-
-      <button onclick="addItem()">Add Item</button>
-
-    </div>
-
-    <!-- 🔵 EDIT ITEM FORM -->
-    <div id="editForm" style="display:none; margin-bottom:20px;">
-
-      <h3>Edit Item</h3>
-
-      <input type="hidden" id="editItemId">
-
-      <input type="text" id="edit_name" placeholder="Item Name">
-      <input type="number" id="edit_price" placeholder="Rent per day">
-      <input type="text" id="edit_deposit" placeholder="Security Deposit">
-      <input type="text" id="edit_brand" placeholder="Brand">
-      <input type="text" id="edit_features" placeholder="Features">
-      <input type="number" id="edit_quantity" placeholder="Quantity">
-      <input type="file" id="edit_image" accept="image/*">
-
-      <button onclick="saveItemChanges()">Save Changes</button>
-      <button onclick="cancelEdit()">Cancel</button>
-
-    </div>
-
-    <!-- 🔵 PROFILE SECTION -->
-<div id="profileSection" style="display:none; margin-top:20px;">
-
-  <h2>My Profile</h2>
-
-  <div id="profileView">
-
-    <p><strong>Name:</strong> <span id="profileName"></span></p>
-    <p><strong>Phone:</strong> <span id="profilePhone"></span></p>
-    <p><strong>Address:</strong> <span id="profileAddress"></span></p>
-    <br>
-    <button onclick="enableEditProfile()">Edit Profile</button>
-
-  </div>
-
-  <div id="profileEdit" style="display:none;">
-
-    <input type="text" id="editName" placeholder="Name"><br>
-    <input type="text" id="editPhone" placeholder="Phone"><br>
-    <input type="text" id="editAddress" placeholder="Address"><br><br>
-
-    <button onclick="saveProfile()">Save</button>
-    <button onclick="cancelEditProfile()">Cancel</button>
-
-  </div>
+<div class="header-right">
+Welcome back, <span id="currentUser"></span>
+</div>
 
 </div>
 
-    <!-- 🔵 ITEMS LIST -->
-    <div id="myItems"></div>
-
+<!-- SIDEBAR -->
+<div id="sidebar" class="sidebar">
+  <div class="sidebar-user">
+    <div id="sidebarName">User Name</div>
+    <div id="sidebarEmail">user@email.com</div>
   </div>
 
-  <!-- FIREBASE SCRIPT -->
-  <script type="module" src="script.js"></script>
+<button class="menu-btn" onclick="setActive(this); showAddItem()">
+<i class="fas fa-plus"></i> Add Item
+</button>
+
+<button class="menu-btn active" onclick="setActive(this); showMyItems()">
+<i class="fas fa-box"></i> My Items
+</button>
+
+<button class="menu-btn" onclick="setActive(this); openOwnerNotifications()">
+<i class="fas fa-bell"></i> Notifications
+<span id="ownerNotifBadge" class="notif-badge"></span>
+</button>
+
+<button class="menu-btn" onclick="setActive(this); showOwnerHistory()">
+<i class="fas fa-clock-rotate-left"></i> Rental History
+</button>
+
+<button class="menu-btn" onclick="setActive(this); showProfile()">
+<i class="fas fa-user"></i> Profile
+</button>
+
+<button class="menu-btn" onclick="logout()">
+<i class="fas fa-right-from-bracket"></i> Logout
+</button>
+
+</div>
+
+<div id="overlay" onclick="toggleSidebar()"></div>
+
+<!-- CONTENT -->
+<div class="dashboard-content">
+
+<!-- ADD ITEM FORM -->
+<div id="addForm" style="display:none; margin-bottom:20px;">
+
+<h3>Add New Item</h3>
+
+<input type="text" id="name" placeholder="Item Name">
+<input type="number" id="price" placeholder="Rent per day">
+<input type="text" id="deposit" placeholder="Security Deposit">
+<input type="text" id="brand" placeholder="Brand">
+<input type="text" id="features" placeholder="Features">
+<input type="number" id="quantity" placeholder="Quantity">
+<input type="file" id="image">
+
+<button onclick="addItem()">Add Item</button>
+
+</div>
+
+<!-- EDIT FORM -->
+<div id="editForm" style="display:none; margin-bottom:20px;">
+
+<h3>Edit Item</h3>
+
+<input type="hidden" id="editItemId">
+
+<input type="text" id="edit_name" placeholder="Item Name">
+<input type="number" id="edit_price" placeholder="Rent per day">
+<input type="text" id="edit_deposit" placeholder="Security Deposit">
+<input type="text" id="edit_brand" placeholder="Brand">
+<input type="text" id="edit_features" placeholder="Features">
+<input type="number" id="edit_quantity" placeholder="Quantity">
+<input type="file" id="edit_image" accept="image/*">
+
+<br><br>
+
+<button onclick="saveItemChanges()">Save Changes</button>
+<button onclick="cancelEdit()">Cancel</button>
+
+</div>
+
+<!-- PROFILE -->
+<div id="profileSection" style="display:none;">
+
+<h2>My Profile</h2>
+<br>
+<div id="profileView">
+
+<p><strong>Name:</strong> <span id="profileName"></span></p>
+<p><strong>Phone:</strong> <span id="profilePhone"></span></p>
+<p><strong>Address:</strong> <span id="profileAddress"></span></p>
+<br>
+
+<button onclick="enableEditProfile()">Edit Profile</button>
+
+</div>
+
+<div id="profileEdit" style="display:none;">
+
+<input type="text" id="editName"><br>
+<input type="text" id="editPhone"><br>
+<input type="text" id="editAddress"><br><br>
+
+<button onclick="saveProfile()">Save</button>
+<button onclick="cancelEditProfile()">Cancel</button>
+
+</div>
+
+</div>
+
+<!-- ITEMS -->
+<div id="myItems"></div>
+
+</div>
+
+<script>
+
+function toggleSidebar(){
+document.getElementById("sidebar").classList.toggle("open");
+document.getElementById("overlay").classList.toggle("show");
+}
+
+/* ACTIVE SIDEBAR */
+
+function setActive(btn){
+
+let buttons = document.querySelectorAll(".menu-btn");
+
+buttons.forEach(b=>{
+b.classList.remove("active");
+});
+
+btn.classList.add("active");
+
+/* CLOSE SIDEBAR AFTER CLICK */
+
+document.getElementById("sidebar").classList.remove("open");
+document.getElementById("overlay").classList.remove("show");
+
+}
+
+</script>
+
+<script type="module" src="script.js"></script>
 
 </body>
 </html>
