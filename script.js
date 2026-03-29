@@ -604,15 +604,24 @@ window.viewOwnerItemReviews = async function (itemId, itemName) {
   }
 
   // 🔥 USE YOUR EXISTING "date" FIELD
-  let formattedDate = "";
+ let formattedDate = "";
 
-  if (review.createdAt) {
-    formattedDate = review.createdAt.toDate().toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "long",
-      year: "numeric"
-    });
-  }
+// ✅ Use updatedAt if exists, otherwise fallback to createdAt
+let dateToUse = review.updatedAt ? review.updatedAt : review.createdAt;
+
+if (dateToUse) {
+
+  const dateObj = dateToUse.toDate
+    ? dateToUse.toDate()
+    : new Date(dateToUse);
+
+  formattedDate = dateObj.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+
+}
 
   container.innerHTML += `
     <div style="margin-bottom:20px; border-bottom:1px solid #ccc; padding-bottom:10px;">
@@ -1745,10 +1754,9 @@ if(menuBadge) menuBadge.style.display = "none";
 
 // ================= CUSTOMER RENTAL HISTORY =================
 
-window.showCustomerHistory = async function () {
+// ================= CUSTOMER RENTAL HISTORY (UPDATED WITH REVIEWS) =================
 
-  customerRenderToken++;
-  const token = customerRenderToken;
+window.showCustomerHistory = async function () {
 
   const container = document.getElementById("items");
   if (!container) return;
@@ -1760,6 +1768,7 @@ window.showCustomerHistory = async function () {
   const user = auth.currentUser;
   if (!user) return;
 
+  // 🔹 GET REQUESTS
   const reqQuery = query(
     collection(db, "requests"),
     where("customerId", "==", user.uid),
@@ -1768,18 +1777,30 @@ window.showCustomerHistory = async function () {
 
   const reqSnapshot = await getDocs(reqQuery);
 
-  if (token !== customerRenderToken) return;
-
   if (reqSnapshot.empty) {
     container.innerHTML = "<h2>Rental History</h2><p>No rental history found</p>";
     return;
   }
 
+  // 🔹 GET ITEMS
   const itemsSnapshot = await getDocs(collection(db, "items"));
-
   const itemsMap = {};
   itemsSnapshot.forEach(doc => {
     itemsMap[doc.id] = doc.data();
+  });
+
+  // 🔹 🔥 GET REVIEWS (IMPORTANT)
+  const reviewSnapshot = await getDocs(collection(db, "reviews"));
+  const reviewMap = {};
+
+  reviewSnapshot.forEach(doc => {
+    const data = doc.data();
+    const key = data.itemId + "_" + data.customerId;
+
+    reviewMap[key] = {
+      id: doc.id,
+      ...data
+    };
   });
 
   container.innerHTML = "<h2>Rental History</h2>";
@@ -1787,22 +1808,6 @@ window.showCustomerHistory = async function () {
   for (const docSnap of reqSnapshot.docs) {
 
     const req = docSnap.data();
-
-    // 🔴 AUTO EXPIRE AFTER 2 HOURS
-    if (req.status === "pending" && req.createdAt) {
-
-      const createdTime = req.createdAt.toMillis();
-      const currentTime = Date.now();
-
-      if (currentTime - createdTime > 3600000) {
-
-        await updateDoc(doc(db, "requests", docSnap.id), {
-          status: "expired"
-        });
-
-        req.status = "expired";
-      }
-    }
 
     const item = itemsMap[req.itemId];
     let image = item ? item.imageBase64 : "";
@@ -1841,8 +1846,38 @@ window.showCustomerHistory = async function () {
     }
 
     if (req.status === "expired") {
-      statusText = "Request Timed Out – No response from owner";
+      statusText = "Request Timed Out";
       statusColor = "gray";
+    }
+
+    // 🔥 CHECK REVIEW
+    const reviewKey = req.itemId + "_" + user.uid;
+    const review = reviewMap[reviewKey];
+
+    let reviewButtons = "";
+
+    if (req.status === "returned") {
+
+      if (!review) {
+        reviewButtons = `
+          <button onclick="addReview('${req.itemId}')">
+            ⭐ Give Review
+          </button>
+        `;
+      } else {
+        reviewButtons = `
+          <button onclick="editReview('${review.id}')">
+            ✏ Edit Review
+          </button>
+
+          <button onclick="deleteReview('${review.id}')"
+            style="background:#ef4444;color:white;">
+            🗑 Delete Review
+          </button>
+
+          <p><strong>Your Review:</strong> ⭐ ${review.rating}/5 - ${review.comment}</p>
+        `;
+      }
     }
 
     container.innerHTML += `
@@ -1868,37 +1903,13 @@ window.showCustomerHistory = async function () {
             </span>
           </p>
 
-          ${
-            req.penaltyAmount > 0 && req.status === "approved"
-            ? `<p style="color:red;font-weight:bold;">
-                  Late Return Penalty: ₹${req.penaltyAmount}
-              </p>`
-            : ""
-          }
-
-          ${
-            req.status === "pending"
-            ? `<button onclick="cancelRequest('${docSnap.id}')"
-                  style="background:#ff4d4d;color:white;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;">
-                  Cancel Request
-              </button>`
-            : req.status === "approved"
-            ? `<button onclick="requestReturn('${docSnap.id}')">
-                  Return Request
-              </button>`
-            : req.status === "return_requested"
-            ? `<p style="color:orange;font-weight:bold;">
-                  Return request sent. Waiting for owner approval
-              </p>`
-            : ""
-          }
+          ${reviewButtons}
 
         </div>
 
       </div>
     `;
   }
-
 };
 
 function hideCustomerSections() {
@@ -2019,7 +2030,7 @@ window.viewReviews = async function (itemId) {
 
       const data = reviewDoc.data();
 
-      // 🔥 FETCH CUSTOMER NAME FROM USERS COLLECTION
+      // 🔹 GET USER NAME
       const userSnap = await getDoc(doc(db, "users", data.customerId));
 
       let customerName = "Unknown User";
@@ -2028,15 +2039,16 @@ window.viewReviews = async function (itemId) {
         customerName = userSnap.data().name || userSnap.data().email;
       }
 
+      // 🔥 FIXED DATE LOGIC
       let formattedDate = "";
 
-      const reviewDate = data.createdAt || data.updatedAt;
+      let dateToUse = data.updatedAt ? data.updatedAt : data.createdAt;
 
-      if (reviewDate) {
+      if (dateToUse) {
 
-        const dateObj = reviewDate.toDate
-          ? reviewDate.toDate()
-          : new Date(reviewDate);
+        const dateObj = dateToUse.toDate
+          ? dateToUse.toDate()
+          : new Date(dateToUse);
 
         formattedDate = dateObj.toLocaleDateString("en-IN", {
           day: "numeric",
