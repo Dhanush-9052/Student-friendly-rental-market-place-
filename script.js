@@ -101,16 +101,22 @@ window.login = async function () {
     const user = userCredential.user;
 
     const userDoc = await getDoc(doc(db, "users", user.uid));
+
+    if (!userDoc.exists()) {
+      alert("User data not found");
+      await signOut(auth);
+      return;
+    }
+
     const userData = userDoc.data();
 
     if (userData.role !== selectedRole) {
-
       alert("This account is not registered as " + selectedRole);
       await signOut(auth);
       return;
     }
 
-    // Correct role
+    // Correct role → redirect
     if (userData.role === "owner") {
       window.location.href = "owner.html";
     } else {
@@ -160,14 +166,20 @@ onAuthStateChanged(auth, async (user) => {
 
     // 🔹 CHECK IF PROFILE IS FILLED
     const userDoc = await getDoc(doc(db, "users", user.uid));
-    const data = userDoc.data();
+    let data;
 
-    if ((!data.name || !data.phone || !data.address) &&
-        !currentPage.includes("profile.html")) {
+if (userDoc.exists()) {
+  data = userDoc.data();
+}
 
-      window.location.href = "profile.html";
-      return;
-    }
+if (!data) return;
+
+if ((!data.name || !data.phone || !data.address) &&
+    !currentPage.includes("profile.html")) {
+
+  window.location.href = "profile.html";
+  return;
+}
 
     // 👤 Profile page
     if (currentPage.includes("profile.html")) {
@@ -198,15 +210,20 @@ onAuthStateChanged(auth, async (user) => {
 
 });
 
+let currentRating = 0;
+
 // ================= PROFILE LOAD =================
 
 async function loadProfile(user) {
 
   const userDoc = await getDoc(doc(db, "users", user.uid));
-  const data = userDoc.data();
+  let data;
 
-  if (!data) return;
+if (userDoc.exists()) {
+  data = userDoc.data();
+}
 
+if (!data) return;
   const viewDiv = document.getElementById("viewProfile");
   const editDiv = document.getElementById("editProfile");
 
@@ -317,17 +334,16 @@ window.showProfile = async function () {
   const userDoc = await getDoc(doc(db, "users", user.uid));
 
   if (userDoc.exists()) {
+  const data = userDoc.data();
 
-    const data = userDoc.data();
+  document.getElementById("profileName").innerText = data.name || "Not set";
+  document.getElementById("profilePhone").innerText = data.phone || "Not set";
+  document.getElementById("profileAddress").innerText = data.address || "Not set";
 
-    document.getElementById("profileName").innerText = data.name || "Not set";
-    document.getElementById("profilePhone").innerText = data.phone || "Not set";
-    document.getElementById("profileAddress").innerText = data.address || "Not set";
-
-    document.getElementById("editName").value = data.name || "";
-    document.getElementById("editPhone").value = data.phone || "";
-    document.getElementById("editAddress").value = data.address || "";
-  }
+  document.getElementById("editName").value = data.name || "";
+  document.getElementById("editPhone").value = data.phone || "";
+  document.getElementById("editAddress").value = data.address || "";
+}
 };
 
 
@@ -407,8 +423,7 @@ window.addItem = async function () {
     });
 
     alert("Item added successfully!");
-    hideOwnerSections();
-    showMyItems();
+    loadOwnerItems();
   }
 };
 
@@ -604,24 +619,11 @@ window.viewOwnerItemReviews = async function (itemId, itemName) {
   }
 
   // 🔥 USE YOUR EXISTING "date" FIELD
- let formattedDate = "";
+  let formattedDate = "";
 
-// ✅ Use updatedAt if exists, otherwise fallback to createdAt
-let dateToUse = review.updatedAt ? review.updatedAt : review.createdAt;
-
-if (dateToUse) {
-
-  const dateObj = dateToUse.toDate
-    ? dateToUse.toDate()
-    : new Date(dateToUse);
-
-  formattedDate = dateObj.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "long",
-    year: "numeric"
-  });
-
-}
+  if (review.date) {
+    formattedDate = review.date.toDate().toLocaleDateString();
+  }
 
   container.innerHTML += `
     <div style="margin-bottom:20px; border-bottom:1px solid #ccc; padding-bottom:10px;">
@@ -655,6 +657,13 @@ window.showItemsForRent = async function () {
   );
 
   const itemsSnapshot = await getDocs(itemsQuery);
+  // 🔥 GET ALL USERS (OWNER NAMES)
+  const usersSnapshot = await getDocs(collection(db, "users"));
+
+  const usersMap = {};
+  usersSnapshot.forEach(doc => {
+    usersMap[doc.id] = doc.data();
+  });
 
   // GET ALL REVIEWS (only once)
   const reviewsSnapshot = await getDocs(collection(db, "reviews"));
@@ -706,6 +715,11 @@ window.showItemsForRent = async function () {
 
     const item = docSnap.data();
     const itemId = docSnap.id;
+    // 🔥 GET OWNER NAME FROM USERS
+    const ownerData = usersMap[item.ownerId];
+    const ownerName = ownerData 
+      ? (ownerData.name || ownerData.email) 
+      : "Owner";
 
     let ratings = reviewMap[itemId] || [];
 
@@ -735,7 +749,7 @@ window.showItemsForRent = async function () {
 
           <p>Rent: ₹${item.price}</p>
           <p>Deposit: ₹${item.deposit}</p>
-          <p>Owner: ${item.ownerName || "Owner"}</p>
+          <p>Owner: ${ownerName}</p>
           <p>Available: ${item.quantity} left</p>
 
           ${
@@ -839,7 +853,7 @@ async function confirmRent() {
   status: "pending",
   createdAt: serverTimestamp(),
 
-  customerNotified: true,   // ⭐ ADD THIS LINE
+  customerNotified: false,   // ⭐ ADD THIS LINE
 
   penaltyApplied: false,
   penaltyAmount: 0,
@@ -1035,13 +1049,11 @@ window.approveRequest = async function (requestId) {
 
   if (!reqData) return;
 
-  // 🔹 Reduce item quantity
+
   const itemRef = doc(db, "items", reqData.itemId);
   const itemSnap = await getDoc(itemRef);
 
   if (itemSnap.exists()) {
-    const itemData = itemSnap.data();
-
     await updateDoc(itemRef, {
       quantity: increment(-1)
     });
@@ -1050,7 +1062,7 @@ window.approveRequest = async function (requestId) {
   // 🔹 Update request status
   await updateDoc(doc(db, "requests", requestId), {
     status: "approved",
-    customerNotified: false
+    customerNotified: true
   });
 
   alert("Request approved!");
@@ -1162,7 +1174,9 @@ container.innerHTML += `
 function listenOwnerNotifications() {
 
   const badge = document.getElementById("ownerNotifBadge");
-  if (!badge) return;
+  const menuBadge = document.getElementById("menuNotifBadge"); // 🔥 ADD THIS
+
+  if (!badge && !menuBadge) return;
 
   const user = auth.currentUser;
   if (!user) return;
@@ -1187,22 +1201,34 @@ function listenOwnerNotifications() {
     });
 
     if (count > 0) {
-      badge.innerText = count;
-      badge.style.display = "inline-block";
-    } 
-    else {
-      badge.style.display = "none";
+
+      if (badge) {
+        badge.innerText = count;
+        badge.style.display = "inline-block";
+      }
+
+      if (menuBadge) {
+        menuBadge.innerText = count;
+        menuBadge.style.display = "inline-block";
+      }
+
+    } else {
+
+      if (badge) badge.style.display = "none";
+      if (menuBadge) menuBadge.style.display = "none";
+
     }
 
   });
 
 }
 
-// ================= CUSTOMER NOTIFICATION =================
 function listenCustomerNotifications() {
 
   const badge = document.getElementById("notifBadge");
-  if (!badge) return;
+  const menuBadge = document.getElementById("menuNotifBadge"); // 🔥 ADD THIS
+
+  if (!badge && !menuBadge) return;
 
   const user = auth.currentUser;
   if (!user) return;
@@ -1220,7 +1246,6 @@ function listenCustomerNotifications() {
 
       const data = docSnap.data();
 
-      // ignore pending requests
       if (data.status === "pending") return;
 
       if (data.customerNotified === false) {
@@ -1231,24 +1256,20 @@ function listenCustomerNotifications() {
 
     if (unreadCount > 0) {
 
-      badge.innerText = unreadCount;
-      badge.style.display = "inline-block";
+      if (badge) {
+        badge.innerText = unreadCount;
+        badge.style.display = "inline-block";
+      }
 
-      const menuBadge = document.getElementById("menuNotifBadge");
-      if(menuBadge){
+      if (menuBadge) {
         menuBadge.innerText = unreadCount;
         menuBadge.style.display = "inline-block";
       }
 
-    } 
-    else {
+    } else {
 
-      badge.style.display = "none";
-
-      const menuBadge = document.getElementById("menuNotifBadge");
-      if(menuBadge){
-        menuBadge.style.display = "none";
-      }
+      if (badge) badge.style.display = "none";
+      if (menuBadge) menuBadge.style.display = "none";
 
     }
 
@@ -1387,52 +1408,19 @@ window.saveItemChanges = async function () {
 
   const itemId = document.getElementById("editItemId").value;
 
-  const name = document.getElementById("edit_name").value;
-  const price = document.getElementById("edit_price").value;
-  const deposit = document.getElementById("edit_deposit").value;
-  const brand = document.getElementById("edit_brand").value;
-  const features = document.getElementById("edit_features").value;
-  const quantity = document.getElementById("edit_quantity").value;
+  await updateDoc(doc(db, "items", itemId), {
+    name: document.getElementById("edit_name").value,
+    price: Number(document.getElementById("edit_price").value),
+    deposit: Number(document.getElementById("edit_deposit").value),
+    brand: document.getElementById("edit_brand").value,
+    features: document.getElementById("edit_features").value,
+    quantity: Number(document.getElementById("edit_quantity").value)
+  });
 
-  const imageFile = document.getElementById("edit_image").files[0];
+  alert("Item updated successfully");
 
-  let updateData = {
-    name: name,
-    price: Number(price),
-    deposit: Number(deposit),
-    brand: brand,
-    features: features,
-    quantity: Number(quantity)
-  };
-
-  if (imageFile) {
-
-    const reader = new FileReader();
-
-    reader.onload = async function () {
-
-      updateData.imageBase64 = reader.result;
-
-      await updateDoc(doc(db, "items", itemId), updateData);
-
-      alert("Item updated successfully");
-
-      hideOwnerSections();
-      showMyItems();
-    };
-
-    reader.readAsDataURL(imageFile);
-
-  } else {
-
-    await updateDoc(doc(db, "items", itemId), updateData);
-
-    alert("Item updated successfully");
-
-    hideOwnerSections();
-    showMyItems();
-  }
-
+  hideOwnerSections();
+  showMyItems();
 };
 
 window.cancelEdit = function () {
@@ -1456,19 +1444,23 @@ async function loadHeaderName(user) {
 
   if (!userDoc.exists()) return;
 
-  const data = userDoc.data();
+  const data = userDoc.data(); // ✅ DECLARE OUTSIDE BLOCK
 
-  const headerName = document.getElementById("currentUser");
+  const nameSpan = document.getElementById("currentUser");
+  if (nameSpan) {
+    nameSpan.innerText = data.name || user.email;
+  }
+
   const sidebarName = document.getElementById("sidebarName");
   const sidebarEmail = document.getElementById("sidebarEmail");
 
-  const name = data.name || user.email.split("@")[0];
+  if (sidebarName) {
+    sidebarName.innerText = data.name || "User";
+  }
 
-  if (headerName) headerName.innerText = name;
-
-  if (sidebarName) sidebarName.innerText = name;
-
-  if (sidebarEmail) sidebarEmail.innerText = user.email;
+  if (sidebarEmail) {
+    sidebarEmail.innerText = user.email;
+  }
 }
 
 function setupDateLimits() {
@@ -1747,16 +1739,15 @@ unreadSnap.forEach((docSnap) => {
 });
 
 await Promise.all(updates);
-const menuBadge = document.getElementById("menuNotifBadge");
-if(menuBadge) menuBadge.style.display = "none";
 
 };
 
 // ================= CUSTOMER RENTAL HISTORY =================
 
-// ================= CUSTOMER RENTAL HISTORY (UPDATED WITH REVIEWS) =================
-
 window.showCustomerHistory = async function () {
+
+  customerRenderToken++;
+  const token = customerRenderToken;
 
   const container = document.getElementById("items");
   if (!container) return;
@@ -1768,7 +1759,6 @@ window.showCustomerHistory = async function () {
   const user = auth.currentUser;
   if (!user) return;
 
-  // 🔹 GET REQUESTS
   const reqQuery = query(
     collection(db, "requests"),
     where("customerId", "==", user.uid),
@@ -1777,37 +1767,55 @@ window.showCustomerHistory = async function () {
 
   const reqSnapshot = await getDocs(reqQuery);
 
+  if (token !== customerRenderToken) return;
+
   if (reqSnapshot.empty) {
     container.innerHTML = "<h2>Rental History</h2><p>No rental history found</p>";
     return;
   }
 
-  // 🔹 GET ITEMS
   const itemsSnapshot = await getDocs(collection(db, "items"));
+
   const itemsMap = {};
   itemsSnapshot.forEach(doc => {
     itemsMap[doc.id] = doc.data();
   });
 
-  // 🔹 🔥 GET REVIEWS (IMPORTANT)
-  const reviewSnapshot = await getDocs(collection(db, "reviews"));
-  const reviewMap = {};
+  // ✅ FETCH ALL REVIEWS ONCE (FAST)
+  const reviewSnapshot = await getDocs(
+    query(collection(db, "reviews"), where("customerId", "==", user.uid))
+  );
 
+  const reviewMap = {};
   reviewSnapshot.forEach(doc => {
     const data = doc.data();
-    const key = data.itemId + "_" + data.customerId;
-
-    reviewMap[key] = {
-      id: doc.id,
-      ...data
-    };
+    reviewMap[data.itemId] = { id: doc.id, ...data };
   });
 
   container.innerHTML = "<h2>Rental History</h2>";
 
   for (const docSnap of reqSnapshot.docs) {
 
+    // ✅ STOP if user switched page
+    if (token !== customerRenderToken) return;
+
     const req = docSnap.data();
+
+    // 🔴 AUTO EXPIRE AFTER 2 HOURS
+    if (req.status === "pending" && req.createdAt) {
+
+      const createdTime = req.createdAt.toMillis();
+      const currentTime = Date.now();
+
+      if (currentTime - createdTime > 3600000) {
+
+        await updateDoc(doc(db, "requests", docSnap.id), {
+          status: "expired"
+        });
+
+        req.status = "expired";
+      }
+    }
 
     const item = itemsMap[req.itemId];
     let image = item ? item.imageBase64 : "";
@@ -1846,39 +1854,42 @@ window.showCustomerHistory = async function () {
     }
 
     if (req.status === "expired") {
-      statusText = "Request Timed Out";
+      statusText = "Request Timed Out – No response from owner";
       statusColor = "gray";
     }
 
-    // 🔥 CHECK REVIEW
-    const reviewKey = req.itemId + "_" + user.uid;
-    const review = reviewMap[reviewKey];
-
+    // ✅ FAST REVIEW LOGIC (NO EXTRA DB CALLS)
     let reviewButtons = "";
 
-    if (req.status === "returned") {
+if (req.status === "returned") {
 
-      if (!review) {
-        reviewButtons = `
-          <button onclick="addReview('${req.itemId}')">
-            ⭐ Give Review
-          </button>
-        `;
-      } else {
-        reviewButtons = `
-          <button onclick="editReview('${review.id}')">
-            ✏ Edit Review
-          </button>
+  const review = reviewMap[req.itemId];
 
-          <button onclick="deleteReview('${review.id}')"
-            style="background:#ef4444;color:white;">
-            🗑 Delete Review
-          </button>
+  if (!review) {
 
-          <p><strong>Your Review:</strong> ⭐ ${review.rating}/5 - ${review.comment}</p>
-        `;
-      }
-    }
+    // ✅ SAME AS RENT BUTTON (no style)
+    reviewButtons = `
+      <button onclick="addReview('${req.itemId}')">
+        Give Review
+      </button>
+    `;
+
+  } else {
+
+    // ✅ Edit = Yellow, Delete = Red
+    reviewButtons = `
+      <button onclick="editReview('${review.id}')"
+        style="background:gold;color:black;">
+        Edit Review
+      </button>
+
+      <button onclick="deleteReview('${review.id}')"
+        style="background:red;color:white;">
+        Delete Review
+      </button>
+    `;
+  }
+}
 
     container.innerHTML += `
       <div class="item-card">
@@ -1903,6 +1914,34 @@ window.showCustomerHistory = async function () {
             </span>
           </p>
 
+          ${
+            req.penaltyAmount > 0 && req.status === "approved"
+            ? `<p style="color:red;font-weight:bold;">
+                  Late Return Penalty: ₹${req.penaltyAmount}
+              </p>`
+            : ""
+          }
+
+          ${
+            req.status === "pending"
+            ? `<button onclick="cancelRequest('${docSnap.id}')"
+                  style="background:#ff4d4d;color:white;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;">
+                  Cancel Request
+              </button>`
+
+            : req.status === "approved"
+            ? `<button onclick="requestReturn('${docSnap.id}')">
+                  Return Request
+              </button>`
+
+            : req.status === "return_requested"
+            ? `<p style="color:orange;font-weight:bold;">
+                  Return request sent. Waiting for owner approval
+              </p>`
+
+            : ""
+          }
+
           ${reviewButtons}
 
         </div>
@@ -1910,6 +1949,7 @@ window.showCustomerHistory = async function () {
       </div>
     `;
   }
+
 };
 
 function hideCustomerSections() {
@@ -2030,7 +2070,7 @@ window.viewReviews = async function (itemId) {
 
       const data = reviewDoc.data();
 
-      // 🔹 GET USER NAME
+      // 🔥 FETCH CUSTOMER NAME FROM USERS COLLECTION
       const userSnap = await getDoc(doc(db, "users", data.customerId));
 
       let customerName = "Unknown User";
@@ -2039,16 +2079,15 @@ window.viewReviews = async function (itemId) {
         customerName = userSnap.data().name || userSnap.data().email;
       }
 
-      // 🔥 FIXED DATE LOGIC
       let formattedDate = "";
 
-      let dateToUse = data.updatedAt ? data.updatedAt : data.createdAt;
+      const reviewDate = data.createdAt || data.updatedAt;
 
-      if (dateToUse) {
+      if (reviewDate) {
 
-        const dateObj = dateToUse.toDate
-          ? dateToUse.toDate()
-          : new Date(dateToUse);
+        const dateObj = reviewDate.toDate
+          ? reviewDate.toDate()
+          : new Date(reviewDate);
 
         formattedDate = dateObj.toLocaleDateString("en-IN", {
           day: "numeric",
@@ -2079,53 +2118,45 @@ window.backToItems = function () {
   document.getElementById("items").style.display = "block";
 };
 
-window.addReview = function(itemId) {
+window.addReview = async function(itemId) {
+
+  currentRating = 0;
+
+  const old = document.getElementById("reviewPopup");
+  if (old) old.remove();
 
   const container = document.getElementById("items");
 
   container.innerHTML += `
-  
-  <div id="reviewPopup" 
-       style="position:fixed; top:0; left:0; width:100%; height:100%;
-              background:rgba(0,0,0,0.4);
-              display:flex; align-items:center; justify-content:center;">
+  <div id="reviewPopup" style="
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.4);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+  ">
 
-    <div style="
-background:white;
-padding:25px;
-width:350px;
-border-radius:10px;
-box-shadow:0 0 15px rgba(0,0,0,0.3);
-">
+    <div style="background:white; padding:30px; border-radius:12px; width:350px; max-width:90%;">
 
-      <h3>Review Product</h3>
+      <h2>Give Review</h2>
 
-      <label>Rating</label><br>
-
-<div id="starRating" style="font-size:25px; cursor:pointer; margin-bottom:10px;">
-  <span onclick="setRating(1)">☆</span>
-  <span onclick="setRating(2)">☆</span>
-  <span onclick="setRating(3)">☆</span>
-  <span onclick="setRating(4)">☆</span>
-  <span onclick="setRating(5)">☆</span>
-</div>
-
-<input type="hidden" id="reviewRating">
-
-      <label>Comment</label><br>
-      <textarea id="reviewComment" style="width:100%; margin-bottom:15px;"></textarea>
-
-      <div style="display:flex; gap:10px;">
-
-        <button onclick="submitReview('${itemId}')">
-          Save
-        </button>
-
-        <button onclick="closeReviewPopup()">
-          Cancel
-        </button>
-
+      <div id="starRating" style="font-size:25px; cursor:pointer;">
+        ${[1,2,3,4,5].map(i => `
+          <span onclick="setRating(${i})" style="color:#ccc;">★</span>
+        `).join('')}
       </div>
+
+      <input type="hidden" id="reviewRating">
+
+      <textarea id="reviewComment" placeholder="Write review..."
+        style="width:100%; margin:10px 0;"></textarea>
+
+      <button onclick="submitReview('${itemId}')">Submit</button>
+      <button onclick="closeReviewPopup()">Cancel</button>
 
     </div>
 
@@ -2135,21 +2166,19 @@ box-shadow:0 0 15px rgba(0,0,0,0.3);
 
 window.setRating = function(rating) {
 
+  currentRating = rating;
+
+  const ratingInput = document.getElementById("reviewRating");
+  if (ratingInput) {
+    ratingInput.value = rating;
+  }
+
   const stars = document.querySelectorAll("#starRating span");
 
   stars.forEach((star, index) => {
-
-    if (index < rating) {
-      star.innerHTML = "★";
-      star.style.color = "gold";
-    } else {
-      star.innerHTML = "☆";
-      star.style.color = "black";
-    }
-
+    star.style.color = index < rating ? "#f5b301" : "#ccc";
   });
 
-  document.getElementById("reviewRating").value = rating;
 };
 
 window.submitReview = async function(itemId) {
@@ -2191,13 +2220,8 @@ window.submitReview = async function(itemId) {
 };
 
 window.closeReviewPopup = function() {
-
   const popup = document.getElementById("reviewPopup");
-
-  if (popup) {
-    popup.remove();
-  }
-
+  if (popup) popup.remove();
 };
 
 window.editReview = async function(reviewId) {
@@ -2205,59 +2229,51 @@ window.editReview = async function(reviewId) {
   const reviewDoc = await getDoc(doc(db, "reviews", reviewId));
   const data = reviewDoc.data();
 
+  currentRating = data.rating;
+
+  const old = document.getElementById("reviewPopup");
+  if (old) old.remove();
+
   const container = document.getElementById("items");
 
   container.innerHTML += `
-  
-  <div id="reviewPopup" 
-       style="position:fixed; top:0; left:0; width:100%; height:100%;
-              background:rgba(0,0,0,0.4);
-              display:flex; align-items:center; justify-content:center;">
+  <div id="reviewPopup" style="
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.4);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+  ">
 
-    <div style="
-background:white;
-padding:25px;
-width:350px;
-border-radius:10px;
-box-shadow:0 0 15px rgba(0,0,0,0.3);
-">
+    <div style="background:white; padding:30px; border-radius:12px; width:350px; max-width:90%;">
 
-      <h3>Edit Review</h3>
+      <h2>Edit Review</h2>
 
-      <label>Rating</label><br>
-
-      <div id="starRating" style="font-size:25px; cursor:pointer; margin-bottom:10px;">
-        <span onclick="setRating(1)">☆</span>
-        <span onclick="setRating(2)">☆</span>
-        <span onclick="setRating(3)">☆</span>
-        <span onclick="setRating(4)">☆</span>
-        <span onclick="setRating(5)">☆</span>
+      <div id="starRating" style="font-size:25px; cursor:pointer;">
+        ${[1,2,3,4,5].map(i => `
+          <span onclick="setRating(${i})"
+            style="color:${i <= data.rating ? '#f5b301' : '#ccc'}">
+            ★
+          </span>
+        `).join('')}
       </div>
 
       <input type="hidden" id="reviewRating" value="${data.rating}">
 
-      <label>Comment</label><br>
-      <textarea id="reviewComment" style="width:100%; margin-bottom:15px;">${data.comment}</textarea>
+      <textarea id="reviewComment"
+        style="width:100%; margin:10px 0;">${data.comment || ""}</textarea>
 
-      <div style="display:flex; gap:10px;">
-
-        <button onclick="updateReview('${reviewId}')">
-          Save
-        </button>
-
-        <button onclick="closeReviewPopup()">
-          Cancel
-        </button>
-
-      </div>
+      <button onclick="updateReview('${reviewId}')">Update</button>
+      <button onclick="closeReviewPopup()">Cancel</button>
 
     </div>
 
   </div>
   `;
-
-  // ⭐ Show previous rating
-  setRating(data.rating);
 };
 
 window.updateReview = async function(reviewId) {
@@ -2276,10 +2292,9 @@ window.updateReview = async function(reviewId) {
     updatedAt: serverTimestamp()
   });
 
-  alert("Review Updated");
+  alert("Review updated");
 
   closeReviewPopup();
-
   showCustomerHistory();
 };
 
