@@ -1,6 +1,6 @@
 // ================= FIREBASE IMPORTS =================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-
+import { runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { 
   getAuth,
   createUserWithEmailAndPassword,
@@ -367,8 +367,26 @@ window.addItem = async function () {
   const quantity = document.getElementById("quantity").value;
   const imageFile = document.getElementById("image").files[0];
 
-  if (!name || !price) {
+  if (
+    !name.trim() ||
+    !price ||
+    !deposit ||
+    !brand.trim() ||
+    !features.trim() ||
+    !quantity ||
+    !imageFile
+  ) {
     alert("Please fill required fields");
+    return;
+  }
+
+  // ✅ Extra numeric validation
+  if (
+    isNaN(price) || Number(price) <= 0 ||
+    isNaN(deposit) || Number(deposit) < 0 ||
+    isNaN(quantity) || Number(quantity) <= 0
+  ) {
+    alert("Enter valid numeric values");
     return;
   }
 
@@ -399,7 +417,24 @@ window.addItem = async function () {
       });
 
       alert("Item added successfully!");
-      loadOwnerItems();
+      // ✅ Clear form
+      document.getElementById("name").value = "";
+      document.getElementById("price").value = "";
+      document.getElementById("deposit").value = "";
+      document.getElementById("brand").value = "";
+      document.getElementById("features").value = "";
+      document.getElementById("quantity").value = "";
+      document.getElementById("image").value = "";
+
+      // ✅ Set sidebar active to "My Items"
+      const buttons = document.querySelectorAll(".menu-btn");
+      buttons.forEach(b => b.classList.remove("active"));
+
+      // 👉 "My Items" is second button (index 1)
+      buttons[1].classList.add("active");
+
+      // ✅ Go to My Items page
+      showMyItems();
     };
 
     reader.readAsDataURL(imageFile);
@@ -423,7 +458,7 @@ window.addItem = async function () {
     });
 
     alert("Item added successfully!");
-    loadOwnerItems();
+    showMyItems();
   }
 };
 
@@ -606,34 +641,44 @@ window.viewOwnerItemReviews = async function (itemId, itemName) {
 
   for (const docSnap of reviewSnapshot.docs) {
 
-  const review = docSnap.data();
+    const review = docSnap.data();
 
-  // 🔥 FETCH NAME FROM USERS COLLECTION
-  const userSnap = await getDoc(doc(db, "users", review.customerId));
+    // 🔹 GET USER NAME
+    const userSnap = await getDoc(doc(db, "users", review.customerId));
 
-  let customerName = "Unknown User";
+    let customerName = "Unknown User";
 
-  if (userSnap.exists()) {
-    const userData = userSnap.data();
-    customerName = userData.name || userData.email;
+    if (userSnap.exists()) {
+      const userData = userSnap.data();
+      customerName = userData.name || userData.email;
+    }
+
+    // ✅ FIXED DATE LOGIC
+    let formattedDate = "";
+
+    const reviewDate = review.createdAt || review.updatedAt;
+
+    if (reviewDate) {
+      const dateObj = reviewDate.toDate
+        ? reviewDate.toDate()
+        : new Date(reviewDate);
+
+      formattedDate = dateObj.toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      });
+    }
+
+    container.innerHTML += `
+      <div style="margin-bottom:20px; border-bottom:1px solid #ccc; padding-bottom:10px;">
+        <strong>${customerName}</strong><br>
+        Rating: ${review.rating}/5<br>
+        Comment: ${review.comment}<br>
+        Date: ${formattedDate || "Not available"}
+      </div>
+    `;
   }
-
-  // 🔥 USE YOUR EXISTING "date" FIELD
-  let formattedDate = "";
-
-  if (review.date) {
-    formattedDate = review.date.toDate().toLocaleDateString();
-  }
-
-  container.innerHTML += `
-    <div style="margin-bottom:20px; border-bottom:1px solid #ccc; padding-bottom:10px;">
-      <strong>${customerName}</strong><br>
-      Rating: ${review.rating}/5<br>
-      Comment: ${review.comment}<br>
-      Date: ${formattedDate}
-    </div>
-  `;
-}
 
   container.innerHTML += `
     <button onclick="loadOwnerItems()">Back</button>
@@ -990,8 +1035,21 @@ window.openOwnerNotifications = async function () {
       statusColor = "darkred";
     }
 
+    // ✅ FORMAT DATE & TIME
+    let dateTime = "";
+    if (req.createdAt) {
+      const dateObj = req.createdAt.toDate();
+      dateTime = dateObj.toLocaleString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
     container.innerHTML += `
-      <div class="request-card">
+      <div class="request-card" style="position:relative;">
 
         <p>
           ${
@@ -1032,6 +1090,17 @@ window.openOwnerNotifications = async function () {
           : ""
         }
 
+        <!-- ✅ DATE & TIME (RIGHT SIDE) -->
+        <div style="
+          position:absolute;
+          right:10px;
+          bottom:10px;
+          font-size:12px;
+          color:gray;
+        ">
+          ${dateTime}
+        </div>
+
       </div>
     `;
   };
@@ -1044,30 +1113,52 @@ window.openOwnerNotifications = async function () {
 
 window.approveRequest = async function (requestId) {
 
-  const reqSnap = await getDoc(doc(db, "requests", requestId));
-  const reqData = reqSnap.data();
+  try {
 
-  if (!reqData) return;
+    const reqSnap = await getDoc(doc(db, "requests", requestId));
+    const reqData = reqSnap.data();
 
+    if (!reqData) return;
 
-  const itemRef = doc(db, "items", reqData.itemId);
-  const itemSnap = await getDoc(itemRef);
+    const itemRef = doc(db, "items", reqData.itemId);
 
-  if (itemSnap.exists()) {
-    await updateDoc(itemRef, {
-      quantity: increment(-1)
+    // 🔒 TRANSACTION START
+    await runTransaction(db, async (transaction) => {
+
+      const itemDoc = await transaction.get(itemRef);
+
+      if (!itemDoc.exists()) {
+        throw "Item not found";
+      }
+
+      const currentQty = itemDoc.data().quantity;
+
+      if (currentQty <= 0) {
+        throw "Out of stock";
+      }
+
+      transaction.update(itemRef, {
+        quantity: currentQty - 1
+      });
+
     });
+    // 🔒 TRANSACTION END
+
+    await updateDoc(doc(db, "requests", requestId), {
+      status: "approved",
+      customerNotified: false
+    });
+
+    alert("Request approved!");
+
+    openOwnerNotifications();
+
+  } catch (error) {
+
+    alert(error);
+
   }
 
-  // 🔹 Update request status
-  await updateDoc(doc(db, "requests", requestId), {
-    status: "approved",
-    customerNotified: true
-  });
-
-  alert("Request approved!");
-
-  openOwnerNotifications(); // refresh properly
 };
 
 // ================= REJECT REQUEST =================
@@ -1080,9 +1171,9 @@ window.rejectRequest = async function (requestId) {
 
   // Update request status
   await updateDoc(doc(db, "requests", requestId), {
-  status: "rejected",
-  customerNotified: false
-});
+    status: "rejected",
+    customerNotified: false
+  });
 
   alert("Request rejected!");
   openOwnerNotifications();
@@ -1226,7 +1317,7 @@ function listenOwnerNotifications() {
 function listenCustomerNotifications() {
 
   const badge = document.getElementById("notifBadge");
-  const menuBadge = document.getElementById("menuNotifBadge"); // 🔥 ADD THIS
+  const menuBadge = document.getElementById("menuNotifBadge");
 
   if (!badge && !menuBadge) return;
 
@@ -1246,14 +1337,22 @@ function listenCustomerNotifications() {
 
       const data = docSnap.data();
 
+      // ❌ Ignore pending requests
       if (data.status === "pending") return;
 
-      if (data.customerNotified === false) {
+      // ✅ Count only real notifications
+      if (
+        (data.status === "approved" ||
+         data.status === "rejected" ||
+         data.status === "returned") &&
+        data.customerNotified === false
+      ) {
         unreadCount++;
       }
 
     });
 
+    // ✅ Update UI
     if (unreadCount > 0) {
 
       if (badge) {
@@ -1375,11 +1474,13 @@ function hideOwnerSections() {
 window.showAddItem = function () {
   hideOwnerSections();
   document.getElementById("addForm").style.display = "block";
+  setActiveMenu("menuAddItem");
 };
 
 window.showMyItems = function () {
   hideOwnerSections();
   document.getElementById("myItems").style.display = "block";
+  setActiveMenu("menuMyItems");
   loadOwnerItems();
 };
 
@@ -1676,10 +1777,23 @@ window.openCustomerNotifications = async function () {
     const req = docSnap.data();
     let message = "";
 
+    // ✅ FORMAT DATE & TIME
+    let dateTime = "";
+    if (req.createdAt) {
+      const dateObj = req.createdAt.toDate();
+      dateTime = dateObj.toLocaleString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
     if (req.penaltyAmount > 0 && req.status === "approved") {
 
       message = `
-        Late return penalty has been applied for 
+        Late return penalty applied for 
         "<strong>${req.itemName}</strong>"<br>
         <span style="color:red;font-weight:bold;">
           Penalty: ₹${req.penaltyAmount}
@@ -1690,25 +1804,52 @@ window.openCustomerNotifications = async function () {
     else if (req.status === "approved") {
 
       message = `
-        Your request for "<strong>${req.itemName}</strong>" has been 
-        <strong style="color:green">Accepted</strong>
+        Your request for "<strong>${req.itemName}</strong>" 
+        has been <strong style="color:green">Accepted</strong>
       `;
 
     } 
     else if (req.status === "rejected") {
 
       message = `
-        Your request for "<strong>${req.itemName}</strong>" has been 
-        <strong style="color:red">Rejected</strong>
+        Your request for "<strong>${req.itemName}</strong>" 
+        has been <strong style="color:red">Rejected</strong>
       `;
+
+    }
+    else if (req.status === "returned") {
+
+      if (req.returnDecision === "accepted") {
+        message = `
+          Your return for "<strong>${req.itemName}</strong>" 
+          has been <strong style="color:green">Accepted</strong>
+        `;
+      } else if (req.returnDecision === "rejected") {
+        message = `
+          Your return for "<strong>${req.itemName}</strong>" 
+          has been <strong style="color:red">Rejected</strong>
+        `;
+      }
 
     }
 
     if (message !== "") {
 
       container.innerHTML += `
-        <div class="request-card">
+        <div class="request-card" style="position:relative;">
+
           ${message}
+
+          <div style="
+            position:absolute;
+            right:10px;
+            bottom:10px;
+            font-size:12px;
+            color:gray;
+          ">
+            ${dateTime}
+          </div>
+
         </div>
       `;
 
@@ -1716,30 +1857,26 @@ window.openCustomerNotifications = async function () {
 
   });
 
-  // 🔹 Mark unread notifications as read
-  // 🔹 Mark only real notifications as read (NOT pending requests)
-const unreadQuery = query(
-  collection(db, "requests"),
-  where("customerId", "==", user.uid),
-  where("customerNotified", "==", false)
-);
-
-const unreadSnap = await getDocs(unreadQuery);
-
-const updates = [];
-
-unreadSnap.forEach((docSnap) => {
-
-  updates.push(
-    updateDoc(doc(db, "requests", docSnap.id), {
-      customerNotified: true
-    })
+  // mark as read
+  const unreadQuery = query(
+    collection(db, "requests"),
+    where("customerId", "==", user.uid),
+    where("customerNotified", "==", false)
   );
 
-});
+  const unreadSnap = await getDocs(unreadQuery);
 
-await Promise.all(updates);
+  const updates = [];
 
+  unreadSnap.forEach((docSnap) => {
+    updates.push(
+      updateDoc(doc(db, "requests", docSnap.id), {
+        customerNotified: true
+      })
+    );
+  });
+
+  await Promise.all(updates);
 };
 
 // ================= CUSTOMER RENTAL HISTORY =================
@@ -1807,7 +1944,7 @@ window.showCustomerHistory = async function () {
       const createdTime = req.createdAt.toMillis();
       const currentTime = Date.now();
 
-      if (currentTime - createdTime > 3600000) {
+      if (currentTime - createdTime > 7200000) {
 
         await updateDoc(doc(db, "requests", docSnap.id), {
           status: "expired"
@@ -2168,10 +2305,7 @@ window.setRating = function(rating) {
 
   currentRating = rating;
 
-  const ratingInput = document.getElementById("reviewRating");
-  if (ratingInput) {
-    ratingInput.value = rating;
-  }
+  document.getElementById("reviewRating").value = rating;
 
   const stars = document.querySelectorAll("#starRating span");
 
@@ -2249,23 +2383,33 @@ window.editReview = async function(reviewId) {
       justify-content:center;
   ">
 
-    <div style="background:white; padding:30px; border-radius:12px; width:350px; max-width:90%;">
+    <div style="
+      background:white;
+      padding:30px;
+      border-radius:12px;
+      width:350px;
+      max-width:90%;
+    ">
 
       <h2>Edit Review</h2>
 
       <div id="starRating" style="font-size:25px; cursor:pointer;">
         ${[1,2,3,4,5].map(i => `
-          <span onclick="setRating(${i})"
-            style="color:${i <= data.rating ? '#f5b301' : '#ccc'}">
-            ★
-          </span>
+          <span onclick="setRating(${i})" style="color:#ccc;">★</span>
         `).join('')}
       </div>
 
       <input type="hidden" id="reviewRating" value="${data.rating}">
 
       <textarea id="reviewComment"
-        style="width:100%; margin:10px 0;">${data.comment || ""}</textarea>
+        placeholder="Write review..."
+        style="
+          width:100%;
+          margin:10px 0;
+          padding:10px;
+          height:80px;
+          text-align:left;
+        ">${data.comment || ""}</textarea>
 
       <button onclick="updateReview('${reviewId}')">Update</button>
       <button onclick="closeReviewPopup()">Cancel</button>
@@ -2274,6 +2418,11 @@ window.editReview = async function(reviewId) {
 
   </div>
   `;
+
+  // ⭐ VERY IMPORTANT → SHOW PREVIOUS RATING
+  setTimeout(() => {
+    setRating(data.rating);
+  }, 100);
 };
 
 window.updateReview = async function(reviewId) {
@@ -2436,7 +2585,9 @@ window.acceptReturn = async function (requestId, itemId) {
 
   await updateDoc(doc(db, "requests", requestId), {
     status: "returned",
-    returnedAt: new Date()
+    returnDecision: "accepted",
+    returnedAt: new Date(),
+    customerNotified: false
   });
 
   await updateDoc(doc(db, "items", itemId), {
@@ -2451,7 +2602,9 @@ window.acceptReturn = async function (requestId, itemId) {
 window.rejectReturn = async function (requestId) {
 
   await updateDoc(doc(db, "requests", requestId), {
-    status: "approved"
+    status: "approved",
+    returnDecision: "rejected",
+    customerNotified: false
   });
 
   alert("Return request rejected");
@@ -2472,3 +2625,17 @@ window.cancelRequest = async function (requestId) {
 
   showCustomerHistory();
 };
+
+function setActiveMenu(menuId) {
+
+  // remove active from all menu items
+  document.querySelectorAll(".menu-item").forEach(item => {
+    item.classList.remove("active");
+  });
+
+  // add active to selected
+  const activeItem = document.getElementById(menuId);
+  if (activeItem) {
+    activeItem.classList.add("active");
+  }
+}
