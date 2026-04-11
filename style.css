@@ -758,3 +758,72 @@ line-height:1;
   display: block;
   margin: 0 auto 15px auto;
 }
+
+/* ================= MOBILE FIX ================= */
+
+@media (max-width: 768px) {
+
+  /* Dashboard content spacing */
+  .dashboard-content {
+    margin: 80px 10px 20px 10px;
+    padding: 15px;
+  }
+
+  /* Item card → stack vertically */
+  .item-card {
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px;
+  }
+
+  .item-left img {
+    width: 100%;
+    height: auto;
+  }
+
+  /* Text size smaller */
+  .item-right h2 {
+    font-size: 18px;
+  }
+
+  .item-right p {
+    font-size: 14px;
+  }
+
+  /* Buttons full width */
+  .item-right button {
+    width: 100%;
+    margin: 5px 0;
+  }
+
+  /* Search bar full width */
+  .search-bar,
+  #customerSearch,
+  #ownerSearch {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  /* Dropdown full width */
+  #itemFilter {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  /* Header text smaller */
+  .header-title {
+    font-size: 16px;
+  }
+
+  /* Sidebar width adjust */
+  .sidebar {
+    width: 220px;
+  }
+
+  /* Profile card fix */
+  .profile-card {
+    width: 100%;
+    margin: 0 10px;
+  }
+
+}
