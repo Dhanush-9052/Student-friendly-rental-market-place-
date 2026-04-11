@@ -827,3 +827,62 @@ line-height:1;
   }
 
 }
+
+/* ================= MOBILE FIX ================= */
+@media (max-width: 768px) {
+
+  /* Fix main content spacing */
+  .dashboard-content {
+    margin: 80px 10px !important;
+    width: auto;
+    padding: 15px;
+  }
+
+  /* Make item cards vertical */
+  .item-card {
+    flex-direction: column !important;
+    gap: 10px;
+    padding: 15px;
+  }
+
+  /* Fix image size */
+  .item-left img {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Text adjustments */
+  .item-right h2 {
+    font-size: 18px;
+  }
+
+  .item-right p {
+    font-size: 14px;
+  }
+
+  /* Buttons full width */
+  .item-right button {
+    width: 100%;
+    margin: 5px 0;
+  }
+
+  /* Search + filter full width */
+  .search-bar,
+  #customerSearch,
+  #ownerSearch,
+  #itemFilter {
+    width: 100% !important;
+    margin: 5px 0;
+  }
+
+  /* Header text smaller */
+  .header-title {
+    font-size: 16px;
+  }
+
+  /* Profile card fix */
+  .profile-card {
+    width: 100%;
+    margin: 0 10px;
+  }
+}
