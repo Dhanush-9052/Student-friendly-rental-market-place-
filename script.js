@@ -1,8 +1,7 @@
+import { auth, db } from "./firebase.js";
 // ================= FIREBASE IMPORTS =================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { 
-  getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
@@ -10,7 +9,6 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import {
-  getFirestore,
   doc,
   setDoc,
   getDoc,
@@ -26,22 +24,6 @@ import {
   increment,        // ADD THIS
   serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-// ================= FIREBASE CONFIG =================
-const firebaseConfig = {
-  apiKey: "AIzaSyD6XDya6MjoVPLNSDsEE4JlpLcKAJsFIrw",
-  authDomain: "student-rental-hub.firebaseapp.com",
-  projectId: "student-rental-hub",
-  storageBucket: "student-rental-hub.firebasestorage.app",
-  messagingSenderId: "90362972178",
-  appId: "1:90362972178:web:2454cdc265537aac4c70cb",
-  measurementId: "G-F3TREG4S3K"
-};
-
-// ================= INITIALIZE =================
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
 
 // ================= REGISTER =================
 window.register = async function () {
