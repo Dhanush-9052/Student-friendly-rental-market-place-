@@ -3,6 +3,7 @@
 <head>
   <title>Register</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="auth-page">
@@ -10,8 +11,22 @@
   <div class="auth-card">
     <h2>Create Account</h2>
 
-    <input type="email" id="newEmail" placeholder="Email" required>
-    <input type="password" id="newPass" placeholder="Password (min 6 chars)" required>
+    <input 
+  type="email" 
+  id="newEmail" 
+  placeholder="Enter VIT-AP Email (@vitapstudent.ac.in)" 
+  required 
+  pattern="^[a-zA-Z0-9._%+-]+@vitapstudent\.ac\.in$"
+  title="Only VIT-AP student emails allowed (example: name@vitapstudent.ac.in)">
+    <div class="password-box">
+  <input 
+  type="password" 
+  id="newPass" 
+  placeholder="Password (min 6 chars)" 
+  required 
+  autocomplete="new-password">
+  <i class="fa-solid fa-eye toggle-password" onclick="togglePassword('newPass', this)"></i>
+</div>
 
     <button onclick="register()">Register</button>
     <p id="regMsg" style="color:red;"></p>

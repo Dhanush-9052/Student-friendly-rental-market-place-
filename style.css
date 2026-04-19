@@ -886,3 +886,36 @@ line-height:1;
     margin: 0 10px;
   }
 }
+.password-box {
+  position: relative;
+  width: 100%;
+}
+
+.password-box input {
+  width: 100%;
+  padding: 10px 40px 10px 10px; /* right space for icon */
+  box-sizing: border-box;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 12px;              /* pushes to end */
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #555;
+  font-size: 18px;
+  pointer-events: all;
+}
+
+/* Hide default browser password toggle (Edge, Chrome, Safari) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
+input[type="password"]::-webkit-credentials-auto-fill-button,
+input[type="password"]::-webkit-textfield-decoration-container,
+input[type="password"]::-webkit-password-toggle-button {
+  display: none !important;
+}

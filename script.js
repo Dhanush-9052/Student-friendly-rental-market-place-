@@ -28,7 +28,7 @@ import {
 // ================= REGISTER =================
 window.register = async function () {
 
-  const email = document.getElementById("newEmail").value;
+  const email = document.getElementById("newEmail").value.trim().toLowerCase();
   const password = document.getElementById("newPass").value;
   const role = localStorage.getItem("role");
 
@@ -38,12 +38,18 @@ window.register = async function () {
     return;
   }
 
+  // ✅ ADD THIS BLOCK (IMPORTANT)
+  if (!email.endsWith("@vitapstudent.ac.in")) {
+    document.getElementById("regMsg").innerText =
+      "Only VIT-AP student email allowed (example: name@vitapstudent.ac.in)";
+    return;
+  }
+
   try {
 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Save user data in Firestore
     await setDoc(doc(db, "users", user.uid), {
       email: email,
       role: role,
@@ -54,8 +60,6 @@ window.register = async function () {
     });
 
     alert("Account created! Please complete your profile.");
-
-    // Redirect to profile page immediately
     window.location.href = "profile.html";
 
   } catch (error) {
@@ -638,7 +642,7 @@ window.viewOwnerItemReviews = async function (itemId, itemName) {
     // ✅ FIXED DATE LOGIC
     let formattedDate = "";
 
-    const reviewDate = review.createdAt || review.updatedAt;
+    const reviewDate = review.updatedAt || review.createdAt;
 
     if (reviewDate) {
       const dateObj = reviewDate.toDate
@@ -2200,7 +2204,7 @@ window.viewReviews = async function (itemId) {
 
       let formattedDate = "";
 
-      const reviewDate = data.createdAt || data.updatedAt;
+      const reviewDate = data.updatedAt || data.createdAt;
 
       if (reviewDate) {
 
@@ -2426,7 +2430,12 @@ window.updateReview = async function(reviewId) {
   alert("Review updated");
 
   closeReviewPopup();
-  showCustomerHistory();
+
+  // 🔥 GET ITEM ID AND REFRESH REVIEWS
+  const reviewSnap = await getDoc(doc(db, "reviews", reviewId));
+  const itemId = reviewSnap.data().itemId;
+
+  viewReviews(itemId);
 };
 
 window.deleteReview = async function(reviewId) {
@@ -2621,3 +2630,17 @@ function setActiveMenu(menuId) {
     activeItem.classList.add("active");
   }
 }
+
+window.togglePassword = function(inputId, icon) {
+  const input = document.getElementById(inputId);
+
+  if (input.type === "password") {
+    input.type = "text";
+    icon.classList.remove("fa-eye");
+    icon.classList.add("fa-eye-slash");
+  } else {
+    input.type = "password";
+    icon.classList.remove("fa-eye-slash");
+    icon.classList.add("fa-eye");
+  }
+};
