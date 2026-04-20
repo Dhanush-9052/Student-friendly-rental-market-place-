@@ -930,3 +930,6 @@ input[type="password"]::-webkit-password-toggle-button {
 .out-of-stock:hover {
   background: #9ca3af;   /* no hover effect */
 }
+label {
+  white-space: nowrap;
+}
