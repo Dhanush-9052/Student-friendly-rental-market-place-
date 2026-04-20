@@ -919,3 +919,14 @@ input[type="password"]::-webkit-textfield-decoration-container,
 input[type="password"]::-webkit-password-toggle-button {
   display: none !important;
 }
+
+.out-of-stock {
+  background: #9ca3af;   /* grey */
+  color: #ffffff;
+  cursor: not-allowed;   /* 🚫 red cross style */
+  border: none;
+}
+
+.out-of-stock:hover {
+  background: #9ca3af;   /* no hover effect */
+}

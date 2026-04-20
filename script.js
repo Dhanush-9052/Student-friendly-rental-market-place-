@@ -786,7 +786,7 @@ window.showItemsForRent = async function () {
           ${
             item.quantity > 0
             ? `<button onclick="rentItem('${itemId}')">Rent</button>`
-            : `<button disabled>No Stock</button>`
+            : `<button class="out-of-stock" disabled>No Stock</button>`
           }
 
           <button onclick="viewReviews('${itemId}')">View Reviews</button>
@@ -852,6 +852,17 @@ async function confirmRent() {
   const from = new Date(fromDate);
   const to = new Date(toDate);
 
+  const today = new Date();
+today.setHours(0,0,0,0);
+
+const tomorrow = new Date(today);
+tomorrow.setDate(today.getDate() + 1);
+
+if (from < today || from > tomorrow) {
+  alert("From date must be today or tomorrow only");
+  return;
+}
+
   if (to < from) {
     alert("Invalid date selection");
     return;
@@ -859,6 +870,10 @@ async function confirmRent() {
 
   const diffTime = to - from;
   const days = (diffTime / (1000 * 60 * 60 * 24)) + 1;
+  if (days > 7) {
+    alert("Maximum rental period is 7 days only");
+    return;
+  }
 
   const totalRent = days * selectedItemData.price;
 
@@ -1551,25 +1566,37 @@ async function loadHeaderName(user) {
 }
 
 function setupDateLimits() {
-
-  const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
-
-  const oneMonthLater = new Date();
-  oneMonthLater.setMonth(today.getMonth() + 1);
-  const oneMonthStr = oneMonthLater.toISOString().split("T")[0];
-
   const fromInput = document.getElementById("rentFrom");
   const toInput = document.getElementById("rentTo");
 
-  if (!fromInput || !toInput) return;
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
 
-  // FROM DATE restrictions
-  fromInput.min = todayStr;
-  fromInput.max = oneMonthStr;
+  // Format YYYY-MM-DD
+  const format = (date) => date.toISOString().split("T")[0];
 
-  // TO DATE restrictions
-  toInput.min = todayStr;
+  // ✅ FROM DATE: only today or tomorrow
+  fromInput.min = format(today);
+  fromInput.max = format(tomorrow);
+
+  // Clear old values
+  fromInput.value = "";
+  toInput.value = "";
+
+  // जब user selects FROM date
+  fromInput.onchange = function () {
+    const selectedFrom = new Date(this.value);
+
+    // ✅ TO DATE: max 7 days from FROM date
+    const maxTo = new Date(selectedFrom);
+    maxTo.setDate(selectedFrom.getDate() + 6); // +6 because inclusive (total 7 days)
+
+    toInput.min = this.value;
+    toInput.max = format(maxTo);
+
+    toInput.value = "";
+  };
 }
 
 function calculateRentDetails() {
